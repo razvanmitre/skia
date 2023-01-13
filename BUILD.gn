@@ -1379,7 +1379,6 @@ skia_component("skia") {
     ":fontmgr_mac_ct",
     ":fontmgr_win",
     ":fontmgr_win_gdi",
-    ":gpu",
     ":graphite",
     ":pdf",
     ":xps",
@@ -1673,7 +1672,6 @@ if (skia_enable_tools) {
     "include/docs",
     "include/effects",
     "include/encode",
-    "include/gpu",
     "include/pathops",
     "include/ports",
     "include/svg",
@@ -1724,7 +1722,6 @@ if (skia_enable_tools) {
       testonly = true
       deps = [
         ":flags",
-        ":gpu_tool_utils",
         ":skia",
         ":skia.h",
         "modules/particles",
@@ -1856,134 +1853,6 @@ if (skia_enable_tools) {
     }
   }
 
-  test_lib("gpu_tool_utils") {
-    public_defines = []
-
-    # Bots and even devs may not have Vulkan headers, so put
-    # include/third_party/vulkan on our path so they're always available.
-    all_dependent_configs = [ ":our_vulkan_headers" ]
-
-    defines = []
-    if (skia_enable_discrete_gpu) {
-      defines += [ "SK_ENABLE_DISCRETE_GPU" ]
-    }
-
-    deps = []
-    public_deps = []
-    sources = [
-      "tools/gpu/BackendSurfaceFactory.cpp",
-      "tools/gpu/BackendSurfaceFactory.h",
-      "tools/gpu/BackendTextureImageFactory.cpp",
-      "tools/gpu/BackendTextureImageFactory.h",
-      "tools/gpu/FlushFinishTracker.cpp",
-      "tools/gpu/FlushFinishTracker.h",
-      "tools/gpu/GrContextFactory.cpp",
-      "tools/gpu/GrTest.cpp",
-      "tools/gpu/ManagedBackendTexture.cpp",
-      "tools/gpu/ManagedBackendTexture.h",
-      "tools/gpu/MemoryCache.cpp",
-      "tools/gpu/MemoryCache.h",
-      "tools/gpu/ProxyUtils.cpp",
-      "tools/gpu/TestContext.cpp",
-      "tools/gpu/TestOps.cpp",
-      "tools/gpu/TestOps.h",
-      "tools/gpu/YUVUtils.cpp",
-      "tools/gpu/YUVUtils.h",
-      "tools/gpu/gl/GLTestContext.cpp",  # See comment below about
-                                         # GrContextFactory workaround.
-      "tools/gpu/mock/MockTestContext.cpp",
-    ]
-
-    libs = []
-    frameworks = []
-
-    if (skia_use_gl) {
-      if (is_ios) {
-        sources += [ "tools/gpu/gl/iOS/CreatePlatformGLTestContext_iOS.mm" ]
-        frameworks += [ "OpenGLES.framework" ]
-      } else if (is_mac) {
-        sources += [ "tools/gpu/gl/mac/CreatePlatformGLTestContext_mac.cpp" ]
-      }
-      if (skia_use_angle) {
-        deps += [ "//third_party/angle2" ]
-        sources += [ "tools/gpu/gl/angle/GLTestContext_angle.cpp" ]
-      }
-    }
-
-    if (skia_use_gl && target_cpu != "wasm") {
-      if (is_android || skia_use_egl) {
-        sources += [ "tools/gpu/gl/egl/CreatePlatformGLTestContext_egl.cpp" ]
-        libs += [ "EGL" ]
-      } else if (is_linux) {
-        sources += [ "tools/gpu/gl/glx/CreatePlatformGLTestContext_glx.cpp" ]
-        libs += [
-          "GLU",
-          "GL",
-          "X11",
-        ]
-      } else if (is_win) {
-        sources += [ "tools/gpu/gl/win/CreatePlatformGLTestContext_win.cpp" ]
-        libs += [ "Gdi32.lib" ]
-        if (target_cpu != "arm64") {
-          libs += [ "OpenGL32.lib" ]
-        }
-      }
-    }
-
-    if (skia_use_vulkan) {
-      sources += [ "tools/gpu/vk/VkTestContext.h" ]
-      sources += [ "tools/gpu/vk/VkTestContext.cpp" ]
-      sources += [ "tools/gpu/vk/VkTestHelper.h" ]
-      sources += [ "tools/gpu/vk/VkTestHelper.cpp" ]
-      sources += [ "tools/gpu/vk/VkTestUtils.h" ]
-      sources += [ "tools/gpu/vk/VkTestUtils.cpp" ]
-      sources += [ "tools/gpu/vk/VkYcbcrSamplerHelper.h" ]
-      sources += [ "tools/gpu/vk/VkYcbcrSamplerHelper.cpp" ]
-    }
-    if (skia_use_metal) {
-      sources += [ "tools/gpu/mtl/MtlTestContext.mm" ]
-    }
-    if (skia_use_direct3d) {
-      sources += [ "tools/gpu/d3d/D3DTestContext.cpp" ]
-      sources += [ "tools/gpu/d3d/D3DTestUtils.cpp" ]
-    }
-    if (skia_use_dawn) {
-      public_deps += [ "//third_party/externals/dawn/include/dawn:headers" ]
-      sources += [ "tools/gpu/dawn/DawnTestContext.cpp" ]
-      if (is_clang) {
-        cflags_cc = [ "-Wno-microsoft-cast" ]
-      }
-    }
-    if (!skia_enable_skgpu_v1) {
-      sources -= [ "tools/gpu/GrTest.cpp" ]
-      sources -= [ "tools/gpu/TestOps.cpp" ]
-      sources -= [ "tools/gpu/TestOps.h" ]
-    }
-    if (skia_enable_graphite) {
-      sources += [ "tools/graphite/ContextFactory.h" ]
-      sources += [ "tools/graphite/ContextFactory.cpp" ]
-      sources += [ "tools/graphite/GraphiteTestContext.h" ]
-      sources += [ "tools/graphite/GraphiteTestContext.cpp" ]
-      if (skia_use_dawn) {
-        sources += [ "tools/graphite/dawn/DawnTestContext.cpp" ]
-        sources += [ "tools/graphite/dawn/GraphiteDawnTestContext.h" ]
-      }
-      if (skia_use_metal) {
-        sources += [ "tools/graphite/mtl/GraphiteMtlTestContext.h" ]
-        sources += [ "tools/graphite/mtl/MtlTestContext.mm" ]
-      }
-      if (skia_use_vulkan) {
-        sources += [ "tools/graphite/vk/VulkanTestContext.cpp" ]
-        sources += [ "tools/graphite/vk/VulkanTestContext.h" ]
-      }
-    }
-
-    if (is_fuchsia && using_fuchsia_sdk) {
-      libs +=
-          [ "${fuchsia_sdk_path}/arch/${target_cpu}/sysroot/lib/libzircon.so" ]
-    }
-  }  # test_lib("gpu_tool_utils")
-
   test_lib("flags") {
     sources = [ "tools/flags/CommandLineFlags.cpp" ]
   }
@@ -1991,12 +1860,7 @@ if (skia_enable_tools) {
   test_lib("common_flags_config") {
     sources = [ "tools/flags/CommonFlagsConfig.cpp" ]
     deps = [ ":flags" ]
-    public_deps = [ ":gpu_tool_utils" ]
-  }
-  test_lib("common_flags_gpu") {
-    sources = [ "tools/flags/CommonFlagsGpu.cpp" ]
-    deps = [ ":flags" ]
-    public_deps = [ ":gpu_tool_utils" ]
+    public_deps = []
   }
   test_lib("common_flags_images") {
     sources = [ "tools/flags/CommonFlagsImages.cpp" ]
@@ -2108,7 +1972,7 @@ if (skia_enable_tools) {
       ":flags",
       "modules/svg",
     ]
-    public_deps = [ ":gpu_tool_utils" ]
+    public_deps = [  ]
   }
 
   test_lib("etc1") {
@@ -2140,7 +2004,7 @@ if (skia_enable_tools) {
       sources += [ "gm/fiddle.cpp" ]
       deps += [ ":skia.h" ]
     }
-    public_deps = [ ":gpu_tool_utils" ]
+    public_deps = [ ]
 
     if (skia_use_ffmpeg) {
       deps += [ "experimental/ffmpeg:video_decoder" ]
@@ -2164,7 +2028,7 @@ if (skia_enable_tools) {
       ":tool_utils",
     ]
     public_deps = [
-      ":gpu_tool_utils",  # Test.h #includes headers from this target.
+    
     ]
   }
 
@@ -2225,7 +2089,6 @@ if (skia_enable_tools) {
     deps = [
       ":flags",
       ":gm",
-      ":gpu_tool_utils",
       ":skia",
       ":tool_utils",
       "modules/skparagraph:bench",
@@ -2259,7 +2122,6 @@ if (skia_enable_tools) {
     public_deps = [ ":tool_utils" ]
     deps = [
       ":flags",
-      ":gpu_tool_utils",
       ":xml",
       "experimental/sktext:samples",
       "modules/audioplayer",
@@ -2300,10 +2162,8 @@ if (skia_enable_tools) {
       deps = [
         ":common_flags_aa",
         ":common_flags_fontmgr",
-        ":common_flags_gpu",
         ":flags",
         ":gm",
-        ":gpu_tool_utils",
         ":hash_and_encode",
         ":skia",
         ":tests",
@@ -2327,11 +2187,9 @@ if (skia_enable_tools) {
         ":common_flags_aa",
         ":common_flags_config",
         ":common_flags_fontmgr",
-        ":common_flags_gpu",
         ":common_flags_images",
         ":flags",
         ":gm",
-        ":gpu_tool_utils",
         ":hash_and_encode",
         ":skia",
         ":tests",
@@ -2394,11 +2252,9 @@ if (skia_enable_tools) {
       ":bench",
       ":common_flags_aa",
       ":common_flags_config",
-      ":common_flags_gpu",
       ":common_flags_images",
       ":flags",
       ":gm",
-      ":gpu_tool_utils",
       ":skia",
       ":tool_utils",
       ":trace",
@@ -2422,7 +2278,6 @@ if (skia_enable_tools) {
       sources = [ "tools/skottie2movie.cpp" ]
       deps = [
         ":flags",
-        ":gpu_tool_utils",
         ":skia",
         "experimental/ffmpeg:video_encoder",
         "modules/skottie",
@@ -2438,9 +2293,7 @@ if (skia_enable_tools) {
     ]
     deps = [
       ":common_flags_config",
-      ":common_flags_gpu",
       ":flags",
-      ":gpu_tool_utils",
       ":skia",
       ":tool_utils",
     ]
@@ -2507,7 +2360,6 @@ if (skia_enable_tools) {
       ]
       deps = [
         ":flags",
-        ":gpu_tool_utils",
         ":skia",
         ":tool_utils",
         "//third_party/libmicrohttpd",
@@ -2564,7 +2416,6 @@ if (skia_enable_tools) {
     ]
     deps = [
       ":flags",
-      ":gpu_tool_utils",
       ":skia",
       "modules/skottie:fuzz",
       "modules/skparagraph",
@@ -2700,7 +2551,6 @@ if (skia_enable_tools) {
 
   test_lib("sk_app") {
     public_deps = [
-      ":gpu_tool_utils",
       ":skia",
     ]
     sources = [
@@ -2994,10 +2844,8 @@ if (skia_enable_tools) {
 
       deps = [
         ":common_flags_fontmgr",
-        ":common_flags_gpu",
         ":flags",
         ":gm",
-        ":gpu_tool_utils",
         ":samples",
         ":sk_app",
         ":skia",
@@ -3031,7 +2879,6 @@ if (skia_enable_tools) {
 
       deps = [
         ":flags",
-        ":gpu_tool_utils",
         ":sk_app",
         ":skia",
         ":tool_utils",
@@ -3106,7 +2953,6 @@ if (skia_enable_tools) {
         ]
         deps += [
           ":flags",
-          ":gpu_tool_utils",
           ":skia",
         ]
         defines = [ "SK_BUILD_FOR_LIBFUZZER" ]
@@ -3175,8 +3021,7 @@ if (skia_enable_tools) {
 
     libfuzzer_app("api_create_ddl") {
       include_dirs = [
-        "include",
-        "include/gpu",
+        "include"
       ]
       sources = [
         "fuzz/FuzzCreateDDL.cpp",

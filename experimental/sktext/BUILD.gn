@@ -34,7 +34,6 @@ if (skia_enable_sktext && skia_enable_skshaper && skia_use_harfbuzz) {
         sources = []
         deps = [
           ":sktext",
-          "../..:gpu_tool_utils",
           "../..:skia",
           "../../modules/skshaper",
         ]
@@ -55,7 +54,6 @@ if (skia_enable_sktext && skia_enable_skshaper && skia_use_harfbuzz) {
         ]
         deps = [
           ":sktext",
-          "../..:gpu_tool_utils",
           "../..:skia",
           "../../modules/skshaper",
         ]
